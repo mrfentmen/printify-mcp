@@ -2,6 +2,38 @@
 
 A Model Context Protocol (MCP) server for integrating AI assistants with Printify's print-on-demand platform.
 
+## Fork notes — Mrfentmen/printify-mcp
+
+This is a fork of [TSavo/printify-mcp](https://github.com/TSavo/printify-mcp)
+(ISC License, © 2025 TSavo — see `LICENSE`; the upstream license and copyright
+are preserved unchanged). All upstream tools keep their names and behavior.
+The fork adds three things, all driven by running this server for a real
+store account:
+
+- **Local-file uploads that just work on Unix** (`src/printify-api.ts`):
+  upstream's Windows-path normalization stripped the leading `/` from every
+  path, so `upload_image` with an absolute Unix path always failed with
+  "File not found". The strip now only applies on Windows, and a local file
+  path is read and sent to the Printify uploads endpoint as base64, as
+  intended.
+- **Built-in pacing guard** (`src/pacing.ts`): `create_product` and
+  `publish_product` are throttled to at most **2 creations per rolling
+  10 minutes**, enforced by the server itself. This is an account-safety
+  feature, not a rate-limit workaround: the account owner has had
+  marketplace accounts banned for automated-looking speed, so creations stay
+  at a human pace. Calls beyond the limit are refused with an explanation
+  and a wait time; uploads and reads are never throttled.
+- **Egress-proxy support** (`src/proxy-setup.ts`): in sandboxes whose
+  traffic leaves through an HTTP proxy named by `https_proxy`/`HTTPS_PROXY`,
+  axios's built-in env-proxy handling breaks on Node >= 20 (it sends a Host
+  header that does not match the proxy authority). When a proxy env var is
+  present, the server installs an `HttpsProxyAgent` (CONNECT tunneling) on
+  the default axios instance instead. With no proxy env var set, nothing
+  changes. (Adds the `https-proxy-agent` dependency.)
+
+Shop selection is unchanged: pass the shop per call (e.g. `switch_shop` /
+per-tool shop context) — no shop is baked in.
+
 ## Table of Contents
 
 - [Overview](#overview)

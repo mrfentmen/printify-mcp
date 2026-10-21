@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 
+import "./proxy-setup.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { PrintifyAPI } from "./printify-api.js";
 import { ReplicateClient } from "./replicate-client.js";
+import { pacingRefusal, recordCreation } from "./pacing.js";
 import dotenv from "dotenv";
 // File system imports moved to service modules
 
@@ -266,6 +268,12 @@ server.tool(
     })).optional().describe("Print areas for the product")
   },
   async ({ title, description, blueprintId, printProviderId, variants, printAreas }): Promise<{ content: any[], isError?: boolean }> => {
+    // Pacing guard (fork addition): refuse creations beyond 2 per 10 minutes
+    const refusal = pacingRefusal();
+    if (refusal) {
+      return { content: [{ type: "text", text: refusal }], isError: true };
+    }
+
     // Import the printify products service
     const { createProduct } = await import('./services/printify-products.js');
 
@@ -292,6 +300,7 @@ server.tool(
 
     // Return the result
     if (result.success) {
+      recordCreation();
       return result.response as { content: any[], isError?: boolean };
     } else {
       return result.errorResponse as { content: any[], isError: boolean };
@@ -395,6 +404,12 @@ server.tool(
     }).optional().describe("Publish details")
   },
   async ({ productId, publishDetails }): Promise<{ content: any[], isError?: boolean }> => {
+    // Pacing guard (fork addition): refuse publishes beyond 2 per 10 minutes
+    const refusal = pacingRefusal();
+    if (refusal) {
+      return { content: [{ type: "text", text: refusal }], isError: true };
+    }
+
     // Import the printify products service
     const { publishProduct } = await import('./services/printify-products.js');
 
@@ -414,6 +429,7 @@ server.tool(
 
     // Return the result
     if (result.success) {
+      recordCreation();
       return result.response as { content: any[], isError?: boolean };
     } else {
       return result.errorResponse as { content: any[], isError: boolean };

@@ -496,8 +496,10 @@ export class PrintifyAPI {
             filePath = source.replace('file:///', '');
           }
 
-          // Handle Windows paths
-          if (filePath.startsWith('/')) {
+          // Handle Windows paths (file:///C:/... -> C:/...) — LOCAL PATCH
+          // (2026-10-21): upstream stripped the leading '/' on every platform,
+          // which broke all absolute Unix paths. Only strip on win32.
+          if (process.platform === 'win32' && filePath.startsWith('/')) {
             filePath = filePath.substring(1);
           }
 
